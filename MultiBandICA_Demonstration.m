@@ -1,5 +1,5 @@
 % This sample code runs the multi-band ICA algorith and the wide-band ICA on the EEG data containing 3 simualtes source of 5 Hz, 12 Hz and 30 HZ with SNRs = 0.1, 0.04, 0.04, respectively.
-
+load('SampleData4MultICA.mat')
 cfg_Mul = [] ; 
 %% Defining the filter banks
 cfg_Mul.bandpass = [ 0.5 4; 3.5 8; 7.5 13; 12 30; 29 100; 47 53 ]       % Defining the filter bands in Hz
@@ -27,13 +27,14 @@ cfg_Mul.pca = 'svd' ;
 %% Choosing the ICA algorithm 
 % SOBI gives the best decomposition with the multi-ICA algorithm
 cfg_Mul.method = 'sobi' ; % Other methods 'runica', 'fastica', 'binica', 'pca', 'svd', 'jader', 'varimax', 'dss', 'cca', 'sobi', 'white'
-cfg_Mul.elec.label = data_short_resamp.label ;
+cfg_Mul.elec.label = SampleData.label ;
 [Multi_ICA] = MultiBand_ICA_Simplified(cfg_Mul, SampleData);
 
 %% Now Running the wide-band ICA
 cfg_Wide = [] ;
 %cfg_Wide.pca = 'svd' ;
-cfg_Wide.elec.label = data_short_resamp.label ;
+cfg_Mul.method = 'sobi' ; % Other methods 'runica', 'fastica', 'binica', 'pca', 'svd', 'jader', 'varimax', 'dss', 'cca', 'sobi', 'white'
+cfg_Wide.elec.label = SampleData.label ;
 [Wide_ICA] = MultiBand_ICA_Simplified(cfg_Wide, SampleData);
 
 
