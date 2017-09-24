@@ -7,7 +7,8 @@ cfg_Mul.bandpass = [ 0.5 4; 3.5 8; 7.5 13; 12 30; 29 100; 47 53 ]       % Defini
 %% Defining the number of components for each band
 % cfg_Mul.rankThresh = [ 10 ; 10 ; 10; 12; 20;] ;                       % You can use this option if you want to decide the number of components from
 % each band as a percentage of the first eigen-value of that band. For example cfg_Mul.rankThresh = [ 10 ; 15 ... ] means that for band one, every
-% principal component whose corresponding eigen-value is greater than 10% of the first eigen-value of that band will be in included
+% principal component whose corresponding eigen-value is greater than 10% of the first eigen-value of that band will be in included. This is the same for
+% band two but 15% instead of 10%. 
 
 % cfg_Mul.rankThreshTotl = [10] ;                                       % You can use this option if you want to decide the number of components from
 % each band as a percentage of the first eigen-value of the band. For example cfg_Mul.rankThreshTotl = [ 5 ] means that for every band, every
