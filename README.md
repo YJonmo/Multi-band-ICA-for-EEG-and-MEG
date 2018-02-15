@@ -10,5 +10,5 @@ ftp://ftp.fieldtriptoolbox.org/pub/fieldtrip/
 
 It runs the multi-band ICA and the wide-band ICA on sample dataset provided on here. 
 
-Question:
-y.jonmo@auckland.ac.nz
+Questions?
+ y.jonmo@auckland.ac.nz
