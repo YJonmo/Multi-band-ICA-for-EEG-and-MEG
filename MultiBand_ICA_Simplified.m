@@ -62,6 +62,7 @@ elseif isfield(cfg, 'timewindow')                                        % Reduc
     data_short.trial = Sensor_space.continuous ; 
     data_short.trialinfo = 1 ;  % This means data is signle trial.
     data_short.time = Sensor_space.time ; 
+    data_short.sampleinfo = [cfg.timewindow(1)*dataToRun.fsample+1 cfg.timewindow(2)*dataToRun.fsample] ; 
 else
     data_short = dataToRun ;
     if  length(dataToRun.trial) == 1 ;
@@ -101,7 +102,19 @@ if  isfield(cfg, 'bandpass')
         ft_progress(Freq_Index/size(Freqs,1), 'Running the Band pass filter for frequency bands %d to %d', Freq(1), Freq(2));
         %Filter the data into the frrquency band of interest
         cfg_filt.bpfreq = Freq ;
-        [Sensor_space_temp2] = ft_preprocessing(cfg_filt, Sensor_space_temp) ;
+        try
+            [Sensor_space_temp2] = ft_preprocessing(cfg_filt, Sensor_space_temp) ;
+        catch 
+            if Freq_Index == 1;
+                ft_progress('init', 'text', 'It is using the low pass for the first band rather than the defined band-pass.')
+                cfg_filt = [] ;
+                cfg_filt.lpfilter = 'yes';
+                cfg_filt.lpfreq = Freqs(1,2)
+                [Sensor_space_temp2] = ft_preprocessing(cfg_filt, Sensor_space_temp) ;    
+                cfg_filt = [] ;
+                cfg_filt.bpfilter = 'yes';
+            end
+        end
         Sensor_space_BPFiltered.Freqs{Freq_Index} = Sensor_space_temp2.trial{1} ; 
     end   
     Sensor_space = Sensor_space_BPFiltered ;    
@@ -118,7 +131,7 @@ data_TemporalSubSpace = Sensor_space;
 data_TemporalSubSpace = rmfield(data_TemporalSubSpace, 'trial') ;
 data_TemporalSubSpace = rmfield(data_TemporalSubSpace, 'label') ;
 
-if  isfield(cfg, 'bandpass')            
+if  isfield(cfg, 'bandpass') || isfield(cfg, 'bandRanks')           
     if isfield(cfg, 'bandRanks')                                        
         rank_source = cfg.bandRanks ;                               % User has defined the number of the PCs for each band
     else
@@ -138,6 +151,19 @@ if isfield(cfg, 'rankThreshTotl')
         if sum(cfg.pca) == 333
             [U Sig V] = svd(Sensor_space.continuous{1}) ; 
             Eigens = diag(Sig).^2 ;
+        elseif sum(cfg.pca) == 530
+            cfg_temp.method = 'svd' ; 
+            data_temp = [] ; 
+            data_temp.label = Sensor_space.label ;
+            data_temp.time{1} = Sensor_space.time{1} ;
+            data_temp.trial{1} = Sensor_space.continuous{1} ;
+            data_temp.fsample = Sensor_space.fsample ;
+            [SVDed_data] = ft_componentanalysis(cfg_temp, data_temp) ; 
+            Eigens = rms(SVDed_data.trial{1}') ;
+            V = SVDed_data.trial{1}' ;
+            U = SVDed_data.topo ; 
+            Eigens = rms(SVDed_data.trial{1}') ;
+            Eigen_Max = Eigens(1) ; 
         else
             [V U Eigens] = pca(Sensor_space.continuous{1}) ; 
         end            
@@ -147,11 +173,24 @@ if isfield(cfg, 'rankThreshTotl')
     Eigen_Max = Eigens(1) ; 
 end
 for SVD_Index = 1:Freq_Index      
-    ft_progress(SVD_Index/Freq_Index, 'Running the PCA of sensor-space data for frequency band %d from %d', SVD_Index, Freq_Index);
+%    ft_progress(SVD_Index/Freq_Index, 'Running the PCA of sensor-space data for frequency band %d from %d', SVD_Index, Freq_Index);
     if isfield(cfg, 'pca')
         if sum(cfg.pca) == 333
             [U Sig V] = svd(Sensor_space.Freqs{SVD_Index}) ; 
             Eigens = diag(Sig).^2 ;
+        elseif sum(cfg.pca) == 646
+            cfg_temp.method = 'svd' ; 
+            data_temp = [] ; 
+            data_temp.label = Sensor_space.label ;
+            data_temp.time{1} = Sensor_space.time{1} ;
+            data_temp.trial{1} = Sensor_space.Freqs{SVD_Index} ;
+            data_temp.fsample = Sensor_space.fsample ;
+            [SVDed_data] = ft_componentanalysis(cfg_temp, data_temp) ; 
+            Eigens = rms(SVDed_data.trial{1}') ;
+            V = SVDed_data.trial{1}' ;
+            U = SVDed_data.topo ; 
+            Eigens = rms(SVDed_data.trial{1}') ;
+            Eigen_Max = Eigens(1) ; 
         else
             [V U Eigens] = pca(Sensor_space.Freqs{SVD_Index}) ; 
         end            
@@ -160,7 +199,7 @@ for SVD_Index = 1:Freq_Index
     end
     
     if  rank_source(SVD_Index) == -1
-        ft_progress('init', 'text', 'Calculating the rank of the sensor-space data');
+        %ft_progress('init', 'text', 'Calculating the rank of the sensor-space data');
         rank_source(SVD_Index) = rank(Sensor_space.Freqs{SVD_Index})   ;
         if isfield(cfg, 'rankThresh')
             for Eigen_index = 1:rank_source(SVD_Index)                              % Using the threshold in precentage of the first eigen value of each band to decide the rank of the source
@@ -182,7 +221,7 @@ for SVD_Index = 1:Freq_Index
     if  SVD_Index == 1
         Eigen_D = Eigens(1:rank_source(1)) ; 
 
-        SpacialPCs(:, 1 : rank_source(1))  = U(:,1:rank_source(1)) ;       % Spatial subspace
+        SpatialPCs(:, 1 : rank_source(1))  = U(:,1:rank_source(1)) ;       % Spatial subspace
         clear U ;
         TemporalSubSpace(:,:)  = V(:,1:rank_source(1)) ;                   % Temporal subspace  
         clear V ;
@@ -194,7 +233,7 @@ for SVD_Index = 1:Freq_Index
     else
         Eigen_D = Eigens(1:rank_source(SVD_Index)) ;       
         
-        SpacialPCs(:, 1 + sum(rank_source(1:SVD_Index-1)): sum(rank_source(1:SVD_Index)))  = U(:,1:rank_source(SVD_Index)) ;      % Spatial subspace
+        SpatialPCs(:, 1 + sum(rank_source(1:SVD_Index-1)): sum(rank_source(1:SVD_Index)))  = U(:,1:rank_source(SVD_Index)) ;      % Spatial subspace
         clear U ;
         TemporalSubSpace  = V(:,1:rank_source(SVD_Index)) ;                % Temporal subspace  
         clear V ;
@@ -208,7 +247,7 @@ for SVD_Index = 1:Freq_Index
         data_TemporalSubSpace.trial{1}(1 + sum(rank_source(1:SVD_Index-1)): sum(rank_source(1:SVD_Index)), :) = TemporalPCs(1 + sum(rank_source(1:SVD_Index-1)): sum(rank_source(1:SVD_Index)),:) ;
     end
 end
-ft_progress('close') ;
+%ft_progress('close') ;
 for I = 1:Freq_Index
     plotlabel{I} = strcat('Band', num2str(I)) ; 
 end
@@ -222,15 +261,33 @@ end
 
 %% Running the ICA
 
+       
 cfg2 = [];
+TICA = data_TemporalSubSpace ; 
 if  isfield(cfg, 'method')
     cfg2.method = cfg.method ;
+    if  sum(cfg.method) == sum('sobi')
+        if  isfield(cfg, 'sobi_delay')
+            sobi_delay = cfg.sobi_delay ; 
+        else 
+            sobi_delay = 1 ; 
+        end
+            [Mixing trial] = sobi(data_TemporalSubSpace.trial{1}, sum(rank_source), sobi_delay) ;
+            TICA.trial{1} = trial ;
+            TICA.unmixing = pinv(Mixing) ; 
+    else
+        cfg2.method = cfg.method ;
+        [TICA] = ft_componentanalysis(cfg2, data_TemporalSubSpace) ;                    % Running ICA for the temporal subsapce
+    end
+else
+        [TICA] = ft_componentanalysis(cfg2, data_TemporalSubSpace) ;                    % Running ICA for the temporal subsapc
 end
-[TICA] = ft_componentanalysis(cfg2, data_TemporalSubSpace) ;                    % Running ICA for the temporal subsapce
+    
+   
 
 %G = U_D*comp.unmixing;
 Mixing = pinv(TICA.unmixing);                                   
-SpacialICs = SpacialPCs*Mixing ;                                                % Calculating the spatial maps of the ICs
+SpatialICs = SpatialPCs*Mixing ;                                                % Calculating the spatial maps of the ICs
 
 for I = 1:sum(rank_source)
     TICA.label{I} = strcat('IC',num2str(I));
@@ -264,13 +321,24 @@ if  isfield(data_short, 'sampleinfo')
 end
 
 
+%% Producing the scalp maps from the Spatial ICs and PCs
+SpatialICs_Maps = zeros(No_Chan, sum(rank_source)) ;
+SpatialPCs_Maps = zeros(No_Chan, sum(rank_source)) ;
+
+for Curren_comp = 1:sum(rank_source)
+    SpatialICs_Maps(:,Curren_comp) = SpatialICs(1:No_Chan,Curren_comp) ;
+    SpatialPCs_Maps(:,Curren_comp) = SpatialPCs(1:No_Chan,Curren_comp) ;
+end
+
 
 %% Returning the processed data
 MBICA.TemporalPCs = TemporalPCs_FsOrig ;
 MBICA.TemporalICs = TICA_FsOrig ;
-MBICA.SpacialICs = SpacialICs ;
+MBICA.SpatialICs = SpatialICs ;
+MBICA.SpatialPCs = SpatialPCs_Maps ;
 MBICA.MixingMatrix = Mixing ;
-MBICA.label = dataToRun ;
+MBICA.label = dataToRun.label ;
+
 
 
 
