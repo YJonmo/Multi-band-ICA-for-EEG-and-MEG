@@ -6,6 +6,7 @@ The background data provided in this repository is from a resting state of one p
 How to run:
 1- Download the fieldtrip toolbox and add its path to your MATLAB (folders and subfolders)
 ftp://ftp.fieldtriptoolbox.org/pub/fieldtrip/
+
 2- Download the codes from this repository and run the code MultiBandICA_Demonstration.m.
 
 It runs the multi-band ICA and the wide-band ICA on sample dataset provided on here. 
